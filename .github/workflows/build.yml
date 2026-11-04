@@ -12,11 +12,18 @@ jobs:
           set -e
           NDK="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
           TC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          git clone --depth 1 https://github.com/jmpews/Dobby.git
-          cmake -S Dobby -B dob -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release -DDOBBY_GENERATE_SHARED=OFF -DDOBBY_DEBUG=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-          cmake --build dob -j4
-          LIB=$(find dob -name 'libdobby*.a' | head -1)
+          git clone --depth 1 https://github.com/LGLTeam/Android-Mod-Menu.git amm || true
+          LIB=$(find amm -path '*arm64-v8a*' -name 'libdobby*.a' 2>/dev/null | head -1)
+          if [ -z "$LIB" ]; then
+            echo "pakai build Dobby dari source"
+            git clone --depth 1 https://github.com/jmpews/Dobby.git
+            grep -rl '@PAGE' Dobby --include=*.asm | xargs -r sed -i -E 's/([A-Za-z_0-9]+)@PAGEOFF/:lo12:\1/g; s/([A-Za-z_0-9]+)@PAGE/\1/g'
+            cmake -S Dobby -B dob -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release -DDOBBY_GENERATE_SHARED=OFF -DDOBBY_DEBUG=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+            cmake --build dob -j4
+            LIB=$(find dob -name 'libdobby*.a' | head -1)
+          fi
           echo "dobby: $LIB"
+          test -n "$LIB"
           "$TC/aarch64-linux-android24-clang++" -std=c++17 -O2 -fPIC -shared -static-libstdc++ -o libbmt.so Main.cpp "$LIB" -llog
           ls -l libbmt.so
       - uses: actions/upload-artifact@v4
